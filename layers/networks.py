@@ -10,7 +10,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from .blocks import MixFFN, SelfAttention
-from text.symbols import symbols
+from text.symbols import get_symbols
+symbols = get_symbols()  # Get initialized symbols
 
 class Encoder(nn.Module):
     """ Phoneme Encoder """

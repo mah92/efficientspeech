@@ -12,64 +12,29 @@ import torch
 import time
 
 from string import punctuation
-from g2p_en import G2p
 from text import text_to_sequence
 from utils.tools import get_mask_from_lengths, synth_one_sample
 
-def read_lexicon(lex_path):
-    lexicon = {}
-    with open(lex_path) as f:
-        for line in f:
-            temp = re.split(r"\s+", line.strip("\n"))
-            word = temp[0]
-            phones = temp[1:]
-            if word.lower() not in lexicon:
-                lexicon[word.lower()] = phones
-    return lexicon
-
-
-def get_lexicon_and_g2p(preprocess_config):
-    lexicon = read_lexicon(preprocess_config["path"]["lexicon_path"])
-    g2p = G2p()
-    return lexicon, g2p
-
-
-def text2phoneme(lexicon, g2p, text, preprocess_config, verbose=False):
+def text2phoneme(text, preprocess_config, verbose=False):
+    """Directly convert IPA text to sequence"""
     text = text.rstrip(punctuation)
-
-    lang = preprocess_config["preprocessing"]["text"]["language"]
-    phones = []
-    words = re.split(r"([,;.\-\?\!\s+])", text)
-    for w in words:
-        if w.lower() in lexicon:
-            phones += lexicon[w.lower()]
-        elif lang == "t1":
-            phones += list(w.lower())
-        else:
-            phones += list(filter(lambda p: p != " ", g2p(w)))
-    phones = "{" + "}{".join(phones) + "}"
-    phones = re.sub(r"\{[^\w\s]?\}", "{sp}", phones)
-    phones = phones.replace("}{", " ")
-
-    if verbose:
-        print("Raw Text Sequence: {}".format(text))
-        print("Phoneme Sequence: {}".format(phones))
-
     sequence = np.array(
         text_to_sequence(
-            phones, preprocess_config["preprocessing"]["text"]["text_cleaners"]
+            text, preprocess_config["preprocessing"]["text"]["text_cleaners"]
         )
     )
-
+    if verbose:
+        print("IPA Sequence:", sequence)
     return sequence
 
-def synthesize(lexicon, g2p, args, phoneme2mel, hifigan, preprocess_config, verbose=False):
+def synthesize(args, phoneme2mel, hifigan, preprocess_config, verbose=False):
     assert(args.text is not None)
 
     if verbose:
         start_time = time.time()
     
-    phoneme = np.array([text2phoneme(lexicon, g2p, args.text, preprocess_config)])
+    # Directly process IPA text
+    phoneme = np.array([text2phoneme(args.text, preprocess_config)])
     phoneme_len = np.array([len(phoneme[0])])
 
     phoneme = torch.from_numpy(phoneme).long()  

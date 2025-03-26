@@ -1,5 +1,8 @@
 '''
+'''
 EfficientSpeech: An On-Device Text to Speech Model
+Modified for direct IPA processing
+Format: <utterance_id>|<speaker_id>|<original_text>|<normalized_text>|<ipa_transcription>
 https://ieeexplore.ieee.org/abstract/document/10094639
 Rowel Atienza, 2023
 Apache 2.0 License
@@ -167,7 +170,25 @@ class LJSpeechDataset(Dataset):
 
         return x, y
 
-    def process_meta(self, filename):
+    def validate_line(self, line):
+        parts = line.strip("\n").split("|")
+        if len(parts) < 2:
+            raise ValueError(f"Line must have at least 2 columns: {line}")
+            
+        # Extract IPA from last column
+        ipa = parts[-1]  # Last column is always IPA
+        if not ipa.strip():
+            raise ValueError(f"Missing IPA transcription: {line}")
+            
+        # Get basename (first column)
+        basename = parts[0]
+        
+        # Get speaker (second column if exists, else default)
+        speaker = parts[1] if len(parts) > 1 else "default"
+        
+        return basename, speaker, ipa, ipa  # (basename, speaker, text, raw_text)
+
+    def process_meta(self, filename):        
         with open(
             os.path.join(self.preprocessed_path, filename), "r", encoding="utf-8"
         ) as f:
@@ -175,12 +196,24 @@ class LJSpeechDataset(Dataset):
             speaker = []
             text = []
             raw_text = []
-            for line in f.readlines():
-                n, s, t, r = line.strip("\n").split("|")
-                if len(r) > self.max_text_length:
+            skipped = 0
+
+            for line_num, line in enumerate(f.readlines(), 1):
+                try:
+                    n, s, t, r = self.validate_line(line)
+                    if len(t) > self.max_text_length:
+                        skipped += 1
+                        continue
+                    name.append(n)
+                    speaker.append(s)
+                    text.append(t)
+                    raw_text.append(r)
+                except ValueError as e:
+                    print((f"warning: Line {line_num} skipped: {str(e)}")
+                    skipped += 1
                     continue
-                name.append(n)
-                speaker.append(s)
-                text.append(t)
-                raw_text.append(r)
+                    
+            if skipped > 0:
+                print(f"warning: Skipped {skipped} invalid lines from {filename}")
+            
             return name, speaker, text, raw_text

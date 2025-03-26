@@ -26,25 +26,41 @@ import validators
 
 from model import EfficientSpeech
 from utils.tools import get_args, write_to_file
-from synthesize import get_lexicon_and_g2p, text2phoneme
+from synthesize import text2phoneme
+from text.symbols import get_symbols
 
-def tts(lexicon, g2p, preprocess_config, model, is_onnx, args, verbose=False):
+def tts(preprocess_config, model, is_onnx, args, verbose=False):
     text = args.text.strip()
     text = text.replace('-', ' ')
+
+    if not text:
+        raise ValueError("Input text cannot be empty")
+    if any(c not in get_symbols() and c not in [' ', '_'] for c in text):
+        invalid_chars = {c for c in text if c not in get_symbols() and c not in [' ', '_']}
+        raise ValueError(f"Text contains invalid IPA symbols: {invalid_chars}")
+    
     phoneme = np.array(
-            [text2phoneme(lexicon, g2p, text, preprocess_config, verbose=args.verbose)], dtype=np.int32)
+            [text2phoneme( text, preprocess_config, verbose=args.verbose)], dtype=np.int32)
     start_time = time.time()
     if is_onnx:
         # onnx is 3.5x faster than pytorch models
         phoneme_len = phoneme.shape[1]
         
-        text = text + 2*args.onnx_insize*'- '
-        phoneme = np.array(
-            [text2phoneme(lexicon, g2p, text, preprocess_config, verbose=args.verbose)], dtype=np.int32)
+        # Calculate required padding
+        pad_length = max(0, args.onnx_insize - phoneme_len)
         
         # unfortunately, due to call to repeat_interleave(), dynamic axis is not supported
         # so, the input size must be fixed to args.onnx_insize=128 (can be configured)
-        phoneme = phoneme[:, :args.onnx_insize]
+        # Pad with zeros (assuming 0 is your padding index)
+        padded_phoneme = np.pad(
+            phoneme,
+            ((0, 0), (0, pad_length)),
+            mode='constant',
+            constant_values=0
+        )
+
+        # Truncate if still too long (shouldn't happen with proper padding)
+        phoneme = padded_phoneme[:, :args.onnx_insize]
         
         ort_inputs = {model.get_inputs()[0].name: phoneme}
         outputs = model.run(None, ort_inputs)
@@ -93,7 +109,6 @@ if __name__ == "__main__":
     preprocess_config = yaml.load(
         open(args.preprocess_config, "r"), Loader=yaml.FullLoader)
  
-    lexicon, g2p = get_lexicon_and_g2p(preprocess_config)
     sampling_rate = preprocess_config["preprocessing"]["audio"]["sampling_rate"]
     is_onnx = False
 
@@ -142,7 +157,6 @@ if __name__ == "__main__":
         sd.default.samplerate = sampling_rate
         sd.default.channels = 1
         sd.default.dtype = 'int16'
-        sd.default.device = None
         sd.default.latency = 'low'
 
     if args.text is not None:
@@ -151,7 +165,7 @@ if __name__ == "__main__":
         for  i in range(args.iter):
             if args.infer_device == "cuda":
                 torch.cuda.synchronize()
-            wav, _, _, _, rtf_i = tts(lexicon, g2p, preprocess_config, model, is_onnx, args)
+            wav, _, _, _, rtf_i = tts(preprocess_config, model, is_onnx, args)
             if i > warmup:
                 rtf.append(rtf_i)
             if args.infer_device == "cuda":
@@ -166,5 +180,5 @@ if __name__ == "__main__":
             # print with 2 decimal places
             print("Average RTF: {:.2f}".format(mean_rtf))  
     else:
-        print("Nothing to synthesize. Please provide a text file with --text")
+        print("Nothing to synthesize. Please provide text with --text")
     

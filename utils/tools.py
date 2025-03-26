@@ -331,7 +331,7 @@ def get_args():
     parser.add_argument("--warmup_epochs", type=int, default=50)
 
     parser.add_argument("--preprocess-config",
-                        default="config/LJSpeech/preprocess.yaml",
+                        default="config/preprocess.yaml",
                         type=str,
                         help="Path to preprocess.yaml",)
     parser.add_argument('--weight-decay',
