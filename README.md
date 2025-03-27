@@ -29,6 +29,12 @@ If you encountered problems with cublas:
 pip uninstall nvidia_cublas_cu11
 ```
 
+Also run this in a python3 terminal:
+```
+import nltk
+nltk.download('averaged_perceptron_tagger_eng')
+```
+
 **Tiny ES**
 
 ```
