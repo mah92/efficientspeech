@@ -62,6 +62,20 @@ def tts(preprocess_config, model, is_onnx, args, verbose=False):
         # Truncate if still too long (shouldn't happen with proper padding)
         phoneme = padded_phoneme[:, :args.onnx_insize]
         
+        # ====== ADD DEBUG PRINT HERE ======
+        print("\nONNX Input Inspection:")
+        print(f"Raw text: {text}")
+        print(f"Phoneme IDs shape: {phoneme.shape}")
+        print(f"Phoneme IDs: {phoneme}")
+        
+        # Convert IDs back to symbols for readability
+        from text.symbols import get_id_to_symbol
+        id_to_symbol = get_id_to_symbol()
+        decoded = [id_to_symbol[id] for id in phoneme[0]]
+        print(f"Decoded symbols: {''.join(decoded)}")
+        print("="*50, "\n")
+        # ====== END DEBUG PRINT ======
+
         ort_inputs = {model.get_inputs()[0].name: phoneme}
         outputs = model.run(None, ort_inputs)
         wavs = outputs[0]
