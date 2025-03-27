@@ -134,7 +134,6 @@ lightning_logs
 *tar
 *.wav
 *.ckpt
-*.txt
 *.DS_Store
 LJ_V3/
 LJ_FT_T2_V2/

@@ -58,6 +58,10 @@ def tts(preprocess_config, model, is_onnx, args, verbose=False):
             mode='constant',
             constant_values=0
         )
+        from text.symbols import get_id_to_symbol
+        id_to_symbol = get_id_to_symbol()
+        print(id_to_symbol)
+
 
         # Truncate if still too long (shouldn't happen with proper padding)
         phoneme = padded_phoneme[:, :args.onnx_insize]

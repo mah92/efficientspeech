@@ -4,7 +4,7 @@ path:
   corpus_path: "/data/tts/isip"
   raw_path: "/data/tts/isip/raw_data/isip"
   preprocessed_path: "./preprocessed_data/isip"
-  tokens_path: "./config/tokens-old-ipa.txt"
+  tokens_path: "./config/tokens-old-ipa.txt" 
   
 preprocessing:
   val_size: 512

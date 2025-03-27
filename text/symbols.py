@@ -42,9 +42,28 @@ _symbols_file = None
 _initialized = False
 
 def load_symbols(symbols_file):
-    """Load symbols from file"""
+    """Load symbols from file, normalizing space symbols to single space"""
+    symbols = []
     with open(symbols_file, 'r', encoding='utf-8') as f:
-        return [line.strip().split()[0] for line in f]
+        for line in f:
+            stripped = line.strip()
+            if not stripped:  # Skip empty lines
+                continue
+            
+            # Find first token (symbol)
+            parts = line.split(maxsplit=1)
+            if not parts:
+                continue
+                
+            symbol = parts[0]
+            
+            # Special case: if line starts with space(s) before number
+            if line[0] == ' ' and line[1] == ' ' and symbol.isdigit():
+                symbol = ''  # Normalize to empty (as needed by efficientspeech, all spaces are removed)
+            
+            symbols.append(symbol)
+    return symbols
+
 
 def initialize_symbols():
     """Initialize the symbol system"""
